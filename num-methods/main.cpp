@@ -14,9 +14,13 @@ int main() {
 
     // Run lessons
 
-    lesson2();
-    lesson3();
-    lesson4();
+    //lesson2();
+    //lesson3();
+    //lesson4();
+
+    //lesson5();
+
+    assignment1();
 
     return 0;
 }

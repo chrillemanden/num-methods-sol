@@ -19,12 +19,23 @@ namespace util
  * @param data_name: name of the data file
  * @param x, y: data gets loaded into these vectors
  */
-void loadDataset(const std::string &data_name, VecDoub_O &x, VecDoub_O &y)
+void loadDataset(const std::string &data_name, int param, VecDoub_O &x, VecDoub_O &y)
 {
     ifstream data(data_name);
-    for(int i = 0; i < 82; i++) {
+    for(int i = 0; i < param; i++) {
         data >> y[i];
         data >> x[i];
+    }
+}
+
+void loadDataset(const std::string &data_name, int param, VecDoub_O &x, VecDoub_O &y, VecDoub_O &z, VecDoub_O &w)
+{
+    ifstream data(data_name);
+    for(int i = 0; i < param; i++) {
+        data >> y[i];
+        data >> x[i];
+        data >> z[i];
+        data >> w[i];
     }
 }
 
@@ -57,6 +68,8 @@ MatDoub getDesignMatrix(const VecDoub &x, int basis_n)
     }
     return A;
 }
+
+
 
 
 /*
@@ -186,6 +199,47 @@ VecDoub errorEstimates(const MatDoub &A, double thresh = -1.)
 }
 /* End of namespace util */
 
+namespace as1 {
+
+MatDoub getDesignMatrix(const VecDoub &th1, const VecDoub &th2)
+{
+    int i, j;
+
+    // The design matrix
+    MatDoub A(th1.size()*2, 4, 0.0);
+
+    // Loop through the all the x rows in the design matrix
+    for (int i = 0; i < th1.size(); i++)
+    {
+        j = i*2;
+        A[j][0] = 1.0;
+        A[j][2] = cos(th1[i]);
+        A[j][3] = cos(th1[i]+th2[i]);
+
+        j++;
+        A[j][1] = 1.0;
+        A[j][2] = sin(th1[i]);
+        A[j][3] = sin(th1[i]+th2[i]);
+    }
+
+    return A;
+}
+
+VecDoub getZ(const VecDoub &x, const VecDoub &y)
+{
+    int i;
+    VecDoub z(x.size()*2, 0.0);
+    for (i = 0; i < x.size(); i++)
+    {
+        z[i*2] = x[i];
+        z[i*2+1] = y[i];
+    }
+
+    return z;
+}
+
+}
+/* End of namespace as1 */
 
 
 /*
