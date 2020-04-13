@@ -12,6 +12,103 @@
 #include <string>
 
 
+
+/* Namespace containing:
+ * Methods for approximating integrals
+ *  - Extended Midpoint (Rectangle) Method
+ *  - Trapezoidal Method
+ *  - Simpsons Method
+ *
+ * All methods follow this structure:
+ * @param lb: lower bound for the integral
+ * @param ub: upper bound for the integral
+ * @param N: number of iterations to run the algorithm
+ * @param func: function to estimate integral for
+ * @return estimated integral value
+ */
+namespace integral_est {
+
+template <class T>
+double rect(double lb, double ub, int N, T &func)
+{
+    // step_size:
+    double h = (ub - lb) / N;
+
+    // Initialise estimate
+    double Ah = 0.0;
+
+    // Accumulate estimate
+    for (double mid = lb + 0.5 * h; mid < ub; mid+=h)
+    {
+        //std::cout << "mid x value: " << mid << std::endl;
+        //std::cout << "A(h): " << h*func(mid) << std::endl;
+        Ah += h*func(mid);
+    }
+
+    // Return with error estimate
+    return Ah + 1.0 /(N*N);
+}
+
+template <class T>
+double trpz(double lb, double ub,  int N, T &func)
+{
+    // step_size:
+    double h = (ub - lb) / N;
+    //std::cout << "step_size: " << h << std::endl;
+
+    // Initialise the estimate
+    double Ah = 0.5 * func(lb) * h;
+
+    // Accumulate the estimate
+    for (double mid = lb + h; mid < ub; mid+=h)
+    {
+        //std::cout << "mid: " << mid << std::endl;
+        Ah += h * func(mid);
+        //std::cout << "Ah: " << Ah << std::endl;
+    }
+
+    // Evaluate at upper bound
+    //std::cout << "mid: " << ub << std::endl;
+    Ah += 0.5 * func(ub) * h;
+    //std::cout << "Ah: " << Ah << std::endl;
+
+    // Return with error estimate
+    return Ah + 1.0 /(N*N);
+}
+
+template <class T>
+double simp(double lb, double ub,  int N, T &func)
+{
+    // step_size:
+    double h = (ub - lb) / N;
+    //std::cout << "step_size: " << h << std::endl;
+
+    // Initialise the estimate
+    double Ah = 1.0/3.0 * func(lb) * h;
+
+    // Accumulate the estimate
+    int i = 1;
+    for (double mid = lb + h; mid < ub; mid+=h)
+    {
+        Ah += (2 + (i % 2) * 2)/3.0 * h * func(mid);
+        i++;
+    }
+
+    // Evaluate at upper bound
+    //std::cout << "mid: " << ub << std::endl;
+    Ah += 1/3 * func(ub) * h;
+    //std::cout << "Ah: " << Ah << std::endl;
+
+    // Return with error estimate
+    return Ah + 1.0/3.0 /(N*N*N*N);
+}
+
+}
+/* End of namespace integral_est */
+
+
+
+
 namespace util
 {
 /*
@@ -32,8 +129,8 @@ void loadDataset(const std::string &data_name, int param, VecDoub_O &x, VecDoub_
 {
     ifstream data(data_name);
     for(int i = 0; i < param; i++) {
-        data >> y[i];
         data >> x[i];
+        data >> y[i];
         data >> z[i];
         data >> w[i];
     }
@@ -194,10 +291,78 @@ VecDoub errorEstimates(const MatDoub &A, double thresh = -1.)
     return res;
 }
 
+/*
+ * Table with Richardson Extrapolation
+ */
+template <typename T>//, typename P>//, class P>
+void doSummaryTable(int max_iter, double order, T &func)//, P &integrator)
+{
+    int s = 16;
+    // Make header
+    std::cout << "i" << setw(s) << "A(hi)" << setw(s) << "A(hi-1)-A(hi)"
+              << setw(s) << "Rich-alp^k" << setw(s) << "Rich-error"
+              << setw(s) << "F-comp" << std::endl;
 
+    // Initial step size
+    double h1 = 1.0;
+    double h2 = 1.0;
+    double h3 = 1.0;
+
+    // Results
+    double Ah1 = 0.0;
+    double Ah2 = 0.0;
+    double Ah3 = 0.0;
+
+    // bounds for the integrals
+    double lb = 0.0;
+    double ub = 1.0;
+
+    int acc_f_comp = 0;
+
+    for (int i = 1; i <= max_iter; ++i)
+    {
+        // Save previous results
+        Ah3 = Ah2;
+        Ah2 = Ah1;
+
+        // Iterations to do to get Ah1:
+        int N = (ub - lb) / h1;
+        acc_f_comp += N;
+
+        //std::cout << "N is: " << N << std::endl;
+        Ah1 = integral_est::rect(lb, ub, N, func);
+
+        std::cout << i << setw(s) << Ah1 << setw(s);
+
+        if (i > 1)
+            std::cout << (Ah2 - Ah1) << setw(s);
+        else
+            std::cout << "*" << setw(s);
+        if (i > 2)
+            //std::cout << ( (Ah3 - Ah2) / (Ah2 - Ah1) - pow(2.0, order) ) << setw(s);
+            std::cout << ( (Ah3 - Ah2) / (Ah2 - Ah1) ) << setw(s);
+        else
+            std::cout << "*" << setw(s);
+
+        std::cout << ( (Ah2 - Ah1) / (pow(2,order) - 1) ) << setw(s) << acc_f_comp << std::endl;
+
+
+        h3 = h2;
+        h2 = h1;
+        h1 *= 0.5;
+    }
+}
 
 }
 /* End of namespace util */
+
+
+
+
+
+
+
+
 
 namespace as1 {
 
@@ -208,8 +373,8 @@ MatDoub getDesignMatrix(const VecDoub &th1, const VecDoub &th2)
     // The design matrix
     MatDoub A(th1.size()*2, 4, 0.0);
 
-    // Loop through the all the x rows in the design matrix
-    for (int i = 0; i < th1.size(); i++)
+    // Loop through all the x rows in the design matrix
+    for (i = 0; i < th1.size(); i++)
     {
         j = i*2;
         A[j][0] = 1.0;

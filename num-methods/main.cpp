@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include "nr3.h"
-#include "ludcmp.h"
+//#include "ludcmp.h"
 #include "cholesky.h"
 #include "svd.h"
 
@@ -20,7 +20,11 @@ int main() {
 
     //lesson5();
 
-    assignment1();
+    //lesson7();
+    lesson8();
+
+
+    //assignment1();
 
     return 0;
 }

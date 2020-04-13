@@ -15,6 +15,10 @@
 #include "nr3.h"
 #include "utilities.h"
 #include "roots.h"
+#include "qrdcmp.h"
+#include "ludcmp.h"
+#include "roots_multidim.h"
+
 
 #define pi 3.14159265358979323846
 
@@ -206,13 +210,15 @@ void lesson5()
 
     //std:: cout << rtbis_wp(func,x1,xh,acc) << std::endl;
 
-    std::cout << zriddr(func, x1, xh, std::pow(10,-16)) << std::endl;
+    //std::cout << zriddr(func, x1, xh, std::pow(10,-16)) << std::endl;
 
 
 }
 
 void assignment1()
 {
+    double sigma = 0.1;
+
     //Load datasets
     VecDoub xd1(500);
     VecDoub yd1(500);
@@ -229,7 +235,16 @@ void assignment1()
     SVDd1.solve(zd1, qd1, SVDd1.eps);
     std::cout << "d1 estimated parameters" << std::endl;
     qd1.print();
+    std::cout << "d1 Singular values: " << std::endl;
+    SVDd1.w.print();
+    std::cout << "Reciprocal Condition number: " << SVDd1.inv_condition() << std::endl;
+    std::cout << "Residual error: " << util::residualError(Ad1, qd1, zd1) << std::endl;
 
+    MatDoub Ad1_err = Ad1/sigma;
+    VecDoub err_est_d1 = util::errorEstimates(Ad1_err, SVDd1.tsh);
+    err_est_d1.print();
+
+    std::cout << "\n\n";
     //Load datasets
     VecDoub xd2(500);
     VecDoub yd2(500);
@@ -246,11 +261,201 @@ void assignment1()
     SVDd2.solve(zd2, qd2, SVDd2.eps);
     std::cout << "d2 estimated parameters" << std::endl;
     qd2.print();
+    std::cout << "d2 Singular values: " << std::endl;
+    SVDd2.w.print();
+    std::cout << "Reciprocal Condition number: " << SVDd2.inv_condition() << std::endl;
+    std::cout << "Residual error: " << util::residualError(Ad2, qd2, zd2) << std::endl;
+    MatDoub Ad2_err = Ad2/sigma;
+    VecDoub err_est_d2 = util::errorEstimates(Ad2_err, SVDd2.tsh);
+    err_est_d2.print();
 
     //std::vector<double> thresholds = {0.01, 0.001, 0.0001, 0.00001, 0.000000001, SVDFilip.eps};
     //util::examineResiduals(AFilip, yFilip, 11, thresholds);
+}
+
+// Material Constants
+const double l7_v = 120; // kg
+const double l7_k = 2.5; // meters
+const double l7_w = 4.0; // kg/m
+const double l7_alpha = 2.0e-7; // kg⁻1
+
+double l7_d = 30; // meters
+double l7_n = 5.0;
+
+VecDoub vecfunc(VecDoub_I x)
+{
+    VecDoub temp(x.size(), 0.0);
+
+    double p = x[0];
+    double L = x[1];
+    double x_par = x[2];
+    double theta = x[3];
+    double a = x[4];
+    double phi = x[5];
+    double L0 = x[6];
+    double H = x[7];
+
+    // p
+    temp[0] = a * ( cosh( x_par/a ) - 1) - p;
+    // L
+    temp[1] = 2 * a * sinh( x_par/a ) - L;
+    // x (x_par)
+    temp[2] = l7_d/2 - l7_k * cos(theta) - x_par;
+    // theta
+    temp[3] = asin((l7_n-p)/l7_k) - theta;
+    // a
+    temp[4] = x_par/(asinh(tan(phi))) - a;
+    // phi
+    temp[5] = atan( tan(theta)/( 1 + l7_v/(l7_w*L0) ) ) - phi;
+    // L0
+    temp[6] = L/( 1+l7_alpha*H ) - L0;
+    // H
+    temp[7] = (l7_w*L0) / ( 2*sin(phi) ) - H;
+
+    return temp;
+}
+
+//VecDoub vecfunc(VecDoub_I x)
+//{
+//    VecDoub temp(x.size(), 0.0);
+
+//    double p = x[0];
+//    double L = x[1];
+//    double x_par = x[2];
+//    double theta = x[3];
+//    double a = x[4];
+//    double phi = x[5];
+//    double L0 = x[6];
+//    double H = x[7];
+
+//    // p
+//    temp[0] = a * ( cosh( x_par/a ) - 1) - p;
+//    // L
+//    temp[1] = 2 * a * sinh( x_par/a ) - L;
+//    // x
+//    temp[2] = 30.0/2 - 2.5 * cos(theta) - x_par;
+//    // theta
+//    temp[3] = asin((5.0-p)/2.5) - theta;
+//    // a
+//    temp[4] = x_par/(asinh(tan(phi))) - a;
+//    // phi
+//    temp[5] = atan( tan(theta)/( 1 + 120.0/(4.0*L0) ) ) - phi;
+//    // L0
+//    temp[6] = L/( 1+(2.0e-7)*H ) - L0;
+//    // H
+//    temp[7] = (4.0*L0) / ( 2*sin(phi) ) - H;
+
+//    return temp;
+//}
+
+void lesson7()
+{
 
 
+    // Start Guesses
+    // sg: start guess for that variable
+    double sg_phi = pi/6.0; // degrees
+    double sg_theta = pi/3.0;
+    double sg_x = 13.5; // meters
+    double sg_p = 3.0;
+    double sg_a = 40.0; //parameter in the catenary equation for the cable
+    double sg_H = 100.0; // String tension in the cable
+    double sg_L = 30.0; // meters
+    double sg_L0 = 30.0;
+
+    double arr_sgx[] = {sg_p, sg_L, sg_x, sg_theta, sg_a, sg_phi, sg_L0, sg_H};
+
+    // Other parameters
+    //double d = 30; // meters
+    double arr_n[] = {5.0, 2.0, 1.0, 0.5, 0.2, 0.1};
+
+    VecDoub sgx(8,arr_sgx);
+
+
+    //VecDoub result = vecfunc(sgx);
+    //result.print();
+
+
+
+
+
+    std::cout << "Initial guesses: " << std::endl;
+    sgx.print();
+
+    for (auto &sg_n : arr_n)
+    {
+        l7_n = sg_n;
+        std::cout << "\n\n Finding roots for n: " << sg_n << std::endl;
+        VecDoub x_res = sgx;
+        bool check_var;
+        newt(x_res, check_var, vecfunc);
+        std::cout << "Estimated parameters: " << std::endl;
+        x_res.print();
+        std::cout << "Output quantitity check: " << check_var << std::endl;
+
+
+    }
+
+
+
+
+
+//    double test[] = {2.0, 2.0, 1.0};
+//    double x1Arr[] = {2.0,8.0,4.0,2.0,1.0};
+//    double x2Arr[] = {1.0,1.0,5.0,7.0,8.0};
+//    double x3Arr[] = {4.0,-5.0,1.0,-4.0,3.0};
+//    VecDoub x1(5, x1Arr);
+//    VecDoub x2(5, x2Arr);
+//    VecDoub x3(5, x3Arr);
+}
+
+namespace l8 {
+
+/* Functions whose integrals to be estimated in lesson 8 */
+double f1(double x){
+    return cos(x*x)*exp(-x);
+}
+
+double f2(double x){
+    return sqrt(x)*cos(x*x)*exp(-x);
+}
+
+double f3(double x){
+    return 1.0/sqrt(x)*cos(x*x)*exp(-x);
+}
+
+double f4(double x){
+    return 1000.0*exp(-1.0/x)*exp(1.0/(1.0-x));
+}
+
+}
+/* End of namespace l8 */
+
+
+void lesson8()
+{
+    std::cout << "First function" << std::endl;
+    std::cout << "Rectangular method: " << integral_est::rect(0.0, 1.0, 8, l8::f1) << std::endl;
+    std::cout << "Trapezoidal method: " << integral_est::trpz(0.0, 1.0, 8, l8::f1) << std::endl;
+    std::cout << "Simpsons method: " << integral_est::simp(0.0, 1.0, 8, l8::f1) << std::endl;
+
+    std::cout << "\n\n";
+    std::cout << "Second function" << std::endl;
+    std::cout << "Simpsons method: " << integral_est::simp(0.0, 1.0, 8, l8::f2) << std::endl;
+
+    std::cout << "\n\n";
+    std::cout << "Third function" << std::endl;
+    std::cout << "Rectangle method: " << integral_est::rect(0.0, 1.0, 8, l8::f3) << std::endl;
+
+    std::cout << "\n\n";
+    std::cout << "Fourth function" << std::endl;
+    std::cout << "Trapezoidal method: " << integral_est::trpz(0.0, 1.0, 8, l8::f4) << std::endl;
+    std::cout << "Rectangle method: " << integral_est::rect(0.0, 1.0, 8, l8::f4) << std::endl;
+    std::cout << "Simpsons method: " << integral_est::simp(0.0, 1.0, 8, l8::f4) << std::endl;
+
+    util::doSummaryTable(8,2,l8::f1);
+    //util::doSummaryTable(2,2,integral_est::rect);
+    //util::doSummaryTable(2,2,l8::f1,integral_est::rect<double>);
 }
 
 #endif // LESSONS_H
