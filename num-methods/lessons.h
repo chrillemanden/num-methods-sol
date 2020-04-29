@@ -428,6 +428,10 @@ double f4(double x){
     return 1000.0*exp(-1.0/x)*exp(1.0/(1.0-x));
 }
 
+double f5(double x){
+    return 1.0/sqrt(x)*cos(5*x);
+}
+
 }
 /* End of namespace l8 */
 
@@ -456,6 +460,150 @@ void lesson8()
     util::doSummaryTable(8,2,l8::f1);
     //util::doSummaryTable(2,2,integral_est::rect);
     //util::doSummaryTable(2,2,l8::f1,integral_est::rect<double>);
+}
+
+void lesson9()
+{
+    //std::cout << "First function" << std::endl;
+    //double blup = integral_est::de(0.0, 1.0, 4, l8::f5);
+    //std::cout << "Double Exponential Rule (DE): " << blup << std::endl;
+    //util::doSummaryTable();
+
+
+    // Previous Mandatory Assignment
+    const int T1 = 1000;
+    const int T2 = 500;
+    const double eps1 = 0.80;
+    const double eps2 = 0.60;
+    const double sigma = 1.72e-9;
+    const double d = 1.00;
+    const double w = 1.00;
+    const double c11 = eps1*sigma*pow(T1,4);
+    const double c12 = (1-eps1);
+    const double c21 = eps2*sigma*pow(T2,4);
+    const double c22 = (1-eps2);
+
+    // number of iterations
+    const int N = 4;
+
+    // right hand side b
+    //int * b = new int[]
+    VecDoub b(2*N);
+    // fill with constants
+    for (int i = 0; i < b.size(); i++)
+    {
+        b[i] = -c11;
+        b[i+N] = -c21;
+    }
+
+    // unknown parameters x
+    VecDoub x(2*N,0.0);
+
+    // step size
+    double h = w / (double)(N - 1);
+
+    // x and y
+    double x_it = -0.5 * w;
+    double y_it = -0.5 * w;
+    double scale = 1.0;
+
+    // Design matrix A
+    MatDoub A(2*N,2*N,0.0);
+    // Determine left top corner of A
+    for (int i = 0; i < A.nrows() / 2; i++)
+    {
+        y_it = -0.5*w;
+        x_it += h;
+
+        scale = (i == 0 || i == (A.nrows() / 2 - 1)) ? 0.5 : 1.0;
+
+        for (int j = 0; j < A.ncols() / 2; j++)
+        {
+            A[i][j] = scale*c12 * h * 0.5 * 1.0 / pow((d*d + (x_it-y_it)*(x_it-y_it)),1.5);
+            std::cout << "y_it is: " << y_it << std::endl;
+            y_it += h;
+
+        }
+    }
+
+    // x and y
+    x_it = -0.5 * w;
+    y_it = -0.5 * w;
+    scale = 1.0;
+
+    // Determine right bottom corner of A
+    for (int i = A.nrows() / 2; i < A.nrows(); i++)
+    {
+        y_it += h;
+        x_it = -0.5*w;
+
+        scale = (i == A.nrows() / 2 || i == (A.nrows() - 1)) ? 0.5 : 1.0;
+
+        for (int j = A.ncols() / 2; j < A.ncols(); j++)
+        {
+            A[i][j] = scale*c22 * h * 0.5 * 1.0 / pow((d*d + (x_it-y_it)*(x_it-y_it)),1.5);
+            x_it += h;
+        }
+    }
+
+    A.print();
+
+
+}
+
+/*
+ * Resources for lesson 10
+ */
+namespace l10 {
+
+VecDoub f1(VecDoub &y)
+{
+    VecDoub res(2,0.0);
+    res[0]=y[0]*y[1];
+    res[1]=-y[0]*y[0];
+    return res;
+}
+
+}
+/* End of namespace l10 */
+
+/*
+ * ODE estimation
+ */
+void lesson10()
+{
+    // declaring the function objects to be used for ODE estimation
+    ode_est::euler euler_est;
+    ode_est::mid mid_est;
+    ode_est::leapf leapf_est;
+    ode_est::trpz trpz_est;
+    ode_est::rk4tho rk4tho_est;
+
+    // testing with at a fixed step-size
+//    VecDoub y0(2);
+//    y0[0] = 1.0;
+//    y0[1] = 1.0;
+//    VecDoub res;
+//    double h = 0.01
+//    res = euler_est(h, 0, 20, y0, l10::f1);
+//    res.print();
+//    res = mid_est(h, 0, 20, y0, l10::f1);
+//    res.print();
+//    res = leapf_est(h, 0, 20, y0, l10::f1);
+//    res.print();
+//    res = trpz_est(h, 0, 20, y0, l10::f1);
+//    res.print();
+//    res = rk4tho_est(h, 0, 20, y0, l10::f1);
+//    res.print();
+
+    // Make summaries evaluating f1 for 10 iterations of decreasing
+    // step-size with the five different ODE estimation methods
+    util::summary_table_ode_est(10, l10::f1, euler_est);
+    util::summary_table_ode_est(10, l10::f1, mid_est);
+    util::summary_table_ode_est(10, l10::f1, leapf_est);
+    util::summary_table_ode_est(10, l10::f1, trpz_est);
+    util::summary_table_ode_est(10, l10::f1, rk4tho_est);
+
 }
 
 #endif // LESSONS_H

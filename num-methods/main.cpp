@@ -4,6 +4,7 @@
 //#include "ludcmp.h"
 #include "cholesky.h"
 #include "svd.h"
+//#include "derule.h"
 
 #include "utilities.h"
 
@@ -21,7 +22,11 @@ int main() {
     //lesson5();
 
     //lesson7();
-    lesson8();
+    //lesson8();
+
+    //lesson9();
+
+    lesson10();
 
 
     //assignment1();
