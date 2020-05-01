@@ -21,21 +21,32 @@
 struct Phi_s
 {
     VecDoub yn;
+    double xn;
     VecDoub f;
     double h;
-    VecDoub (*func)(VecDoub&);
+    VecDoub (*func)(double, VecDoub&);
     //Phi_s(VecDoub yn, VecDoub f, double h, VecDoub &func) : yn(yn), f(f), h(h), func(func) {}
     VecDoub operator() (VecDoub y)
     {
-        return y - yn - (f + func(y)) * 0.5 * h;
+        return y - yn - (f + func(xn + h, y)) * 0.5 * h;
         //return y - yn - f * 0.5 * h;
         //return y;
     }
-    void setParams(VecDoub &ynn, VecDoub &fn)
+    void setParams(double xnn, VecDoub &ynn, VecDoub &fn)
     {
+        xn = xnn;
         yn = ynn;
         f = fn;
     }
+};
+
+struct est_val
+{
+    VecDoub y0;
+    double x0;
+    double trg_x;
+    double h_init;
+    est_val(VecDoub y0, double x0, double trg_x, double h_init) : y0(y0), x0(x0), trg_x(trg_x), h_init(h_init) {}
 };
 
 
@@ -187,14 +198,14 @@ struct euler
     std::string desc = "1st Order Runge-Kutta (Euler) Method";
     int order = 1;
     int f_comp = 0;
-    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(VecDoub&))
+    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(double, VecDoub&))
     {
         f_comp = 0;
         VecDoub yn = y0;
 
         for (double xn = x0; xn < x; xn += h)
         {
-            yn = yn + func(yn) * h;
+            yn = yn + func(xn, yn) * h;
             f_comp++;
         }
         return yn;
@@ -226,7 +237,7 @@ struct mid
     int order = 2;
     int f_comp = 0;
    // mid() {}
-    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(VecDoub&))
+    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(double, VecDoub&))
     {
         f_comp = 0;
         VecDoub yn = y0;
@@ -236,9 +247,9 @@ struct mid
 
         for (double xn = x0; xn < x; xn += h)
         {
-            k1 = func(yn)*h;
+            k1 = func(xn,yn)*h;
             tmp = yn + k1 * 0.5;
-            k2 = func(tmp)*h;
+            k2 = func(xn + 0.5 * h,tmp)*h;
             yn = yn + k2;
 
             f_comp+=2;
@@ -278,7 +289,7 @@ struct trpz
     int f_comp = 0;
    // trpz() {}
 
-    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(VecDoub&))
+    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(double, VecDoub&))
     {
         f_comp = 0;
         VecDoub yn = y0;
@@ -293,9 +304,9 @@ struct trpz
 
         for (double xn = x0; xn < x; xn += h)
         {
-            f1 = func(yn);
+            f1 = func(xn, yn);
             y_euler = yn + f1 * h;
-            phi.setParams(yn, f1);
+            phi.setParams(xn, yn, f1);
             yn = y_euler;
             newt(yn, check_var, phi);
             f_comp += 3;
@@ -336,7 +347,7 @@ struct rk4tho
     int f_comp = 0;
    // rk4tho() {}
 
-    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(VecDoub&))
+    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(double, VecDoub&))
     {
         f_comp = 0;
         VecDoub yn = y0;
@@ -349,13 +360,13 @@ struct rk4tho
 
         for (double xn = x0; xn < x; xn += h)
         {
-            k1 = func(yn)*h;
+            k1 = func(xn, yn)*h;
             tmp = yn + k1 * 0.5;
-            k2 = func(tmp)*h;
+            k2 = func(xn + 0.5 * h, tmp)*h;
             tmp = yn + k2 * 0.5;
-            k3 = func(tmp)*h;
+            k3 = func(xn + 0.5 * h, tmp)*h;
             tmp = k3 +yn;
-            k4 = func(tmp)*h;
+            k4 = func(xn + h, tmp)*h;
             yn = yn + k1/6.0 + k2/3.0 + k3/3.0 + k4/6.0;
 
             f_comp += 4;
@@ -387,17 +398,17 @@ struct leapf
     int order = 2;
     int f_comp = 1;
    // leapf() {}
-    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(VecDoub&))
+    VecDoub operator() (double h, double x0, double x, const VecDoub &y0, VecDoub (*func)(double, VecDoub&))
     {
         f_comp = 1;
         VecDoub ynpre = y0;
-        VecDoub yn = ynpre + func(ynpre)*h;
+        VecDoub yn = ynpre + func(x0, ynpre)*h;
         VecDoub yntmp;
 
         for (double xn = x0+h; xn < x; xn += h)
         {
             yntmp = yn;
-            yn = ynpre + func(yn) * 2 * h;
+            yn = ynpre + func(xn, yn) * 2 * h;
             ynpre = yntmp;
             f_comp++;
         }
@@ -696,17 +707,18 @@ void print_rich_table(int order, const std::vector<double> &Ahs, const std::vect
  * Table with Richardson Extrapolation
  */
 template <typename T, typename Est>//, typename P>//, class P>
-void summary_table_ode_est(int max_iter, T &func, Est &estf)//, P &integrator)
+void summary_table_ode_est(int max_iter, const est_val &params, T &func, Est &estf)//, P &integrator)
 {
     // Initial step size
-    double h = 1.0;
+    double h = params.h_init;
 
     // Initial parameters
-    VecDoub y0(2);
-    y0[0] = 1.0;
-    y0[1] = 1.0;
-    double x0 = 0.0;
-    double trg_x = 20;
+//    VecDoub y0(2);
+//    y0[0] = 1.0;
+//    y0[1] = 1.0;
+    VecDoub y0(params.y0);
+    double x0 = params.x0;
+    double trg_x = params.trg_x;
     VecDoub res(2);
 
     // save results

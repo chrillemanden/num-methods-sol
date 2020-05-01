@@ -556,7 +556,7 @@ void lesson9()
  */
 namespace l10 {
 
-VecDoub f1(VecDoub &y)
+VecDoub f1(double x, VecDoub &y)
 {
     VecDoub res(2,0.0);
     res[0]=y[0]*y[1];
@@ -564,8 +564,18 @@ VecDoub f1(VecDoub &y)
     return res;
 }
 
+VecDoub f2(double x, VecDoub &y)
+{
+    VecDoub res(2,0.0);
+    res[0]=cos(-1 + x + y[0] + 3 * y[1]);
+    res[1]=-(y[0]*y[0]) + 2 * sin(y[1]);
+    return res;
+}
+
 }
 /* End of namespace l10 */
+
+
 
 /*
  * ODE estimation
@@ -579,10 +589,12 @@ void lesson10()
     ode_est::trpz trpz_est;
     ode_est::rk4tho rk4tho_est;
 
-    // testing with at a fixed step-size
-//    VecDoub y0(2);
-//    y0[0] = 1.0;
-//    y0[1] = 1.0;
+    // testing with at a fixed step-sizel10
+    VecDoub y0(2);
+    y0[0] = 1.0;
+    y0[1] = 1.0;
+    est_val l10f1(y0, 0.0, 20.0, 1.0);
+
 //    VecDoub res;
 //    double h = 0.01
 //    res = euler_est(h, 0, 20, y0, l10::f1);
@@ -598,12 +610,25 @@ void lesson10()
 
     // Make summaries evaluating f1 for 10 iterations of decreasing
     // step-size with the five different ODE estimation methods
-    util::summary_table_ode_est(10, l10::f1, euler_est);
-    util::summary_table_ode_est(10, l10::f1, mid_est);
-    util::summary_table_ode_est(10, l10::f1, leapf_est);
-    util::summary_table_ode_est(10, l10::f1, trpz_est);
-    util::summary_table_ode_est(10, l10::f1, rk4tho_est);
+    util::summary_table_ode_est(10, l10f1, l10::f1, euler_est);
+    util::summary_table_ode_est(10, l10f1, l10::f1, mid_est);
+    util::summary_table_ode_est(10, l10f1, l10::f1, leapf_est);
+    util::summary_table_ode_est(10, l10f1, l10::f1, trpz_est);
+    util::summary_table_ode_est(10, l10f1, l10::f1, rk4tho_est);
 
+
+}
+
+void lesson11()
+{
+    ode_est::mid mid_est;
+
+    VecDoub y0(2);
+    y0[0] = 1;
+    y0[1] = 0;
+    est_val l11f2(y0, 0.0, 1.0, 1.0);
+
+    util::summary_table_ode_est(10, l11f2, l10::f2, mid_est);
 }
 
 #endif // LESSONS_H
